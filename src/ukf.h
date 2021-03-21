@@ -94,6 +94,21 @@ class UKF {
 
   // Sigma point spreading parameter
   double lambda_;
+
+  // Sigma point size
+  int sigma_point_size_;
+
+ private:
+  void AugmentedSigmaPoints(Eigen::MatrixXd& Xsig_aug);
+  void SigmaPointPrediction(Eigen::MatrixXd& Xsig_aug, double delta_t);
+  void PredictMeanAndCovariance();
+
+  void PredictLidarMeasurement(Eigen::MatrixXd& Zsig, Eigen::VectorXd& z_pred,
+                               Eigen::MatrixXd& S);
+  void PredictRadarMeasurement(Eigen::MatrixXd& Zsig, Eigen::VectorXd& z_pred,
+                               Eigen::MatrixXd& S);
+  void UpdateState(MeasurementPackage& meas_package, Eigen::MatrixXd& Zsig,
+                   Eigen::VectorXd& z_pred, Eigen::MatrixXd& S);
 };
 
 #endif  // UKF_H
