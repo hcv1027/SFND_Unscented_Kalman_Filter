@@ -1,4 +1,5 @@
 #include "ukf.h"
+#include <iostream>
 #include "Eigen/Dense"
 
 using Eigen::MatrixXd;
@@ -7,7 +8,10 @@ using Eigen::VectorXd;
 /**
  * Initializes Unscented Kalman filter
  */
-UKF::UKF() {
+UKF::UKF(std::string name) {
+  name_ = name;
+  std::cout << "I'm " << name_ << std::endl;
+
   // if this is false, laser measurements will be ignored (except during init)
   use_laser_ = true;
 
@@ -68,6 +72,7 @@ UKF::UKF() {
   for (int i = 1; i < sigma_point_size_; i++) {
     weights_(i) = temp;
   }
+  std::cout << "weights: \n" << weights_ << "\n" << std::endl;
 }
 
 UKF::~UKF() {}
@@ -87,6 +92,10 @@ void UKF::ProcessMeasurement(MeasurementPackage meas_package) {
     } else {
     }
 
+    std::cout << "I'm " << name_ << std::endl;
+    std::cout << "Init x: \n" << x_ << "\n" << std::endl;
+    std::cout << "Init P: \n" << P_ << "\n" << std::endl;
+
     return;
   }
 
@@ -94,7 +103,7 @@ void UKF::ProcessMeasurement(MeasurementPackage meas_package) {
   if (meas_package.sensor_type_ == MeasurementPackage::LASER) {
     UpdateLidar(meas_package);
   } else {
-    UpdateRadar(meas_package);
+    // UpdateRadar(meas_package);
   }
 }
 
@@ -111,6 +120,11 @@ void UKF::Prediction(double delta_t) {
   SigmaPointPrediction(Xsig_aug, delta_t);
   // Predict mean and covariance
   PredictMeanAndCovariance();
+  std::cout << "I'm " << name_ << std::endl;
+  std::cout << "Xsig_aug: \n" << Xsig_aug << "\n" << std::endl;
+  std::cout << "Xsig_pred_: \n" << Xsig_pred_ << "\n" << std::endl;
+  std::cout << "Predict x: \n" << x_ << "\n" << std::endl;
+  std::cout << "Predict P: \n" << P_ << "\n\n" << std::endl;
 }
 
 void UKF::AugmentedSigmaPoints(Eigen::MatrixXd& Xsig_aug) {
@@ -225,6 +239,8 @@ void UKF::UpdateLidar(MeasurementPackage meas_package) {
   MatrixXd Zsig;
   VectorXd z_pred;
   MatrixXd S;
+  std::cout << "I'm " << name_ << std::endl;
+  std::cout << "Xsig_pred_: \n" << Xsig_pred_ << "\n" << std::endl;
   PredictLidarMeasurement(Zsig, z_pred, S);
   UpdateState(meas_package, Zsig, z_pred, S);
 }
@@ -245,6 +261,45 @@ void UKF::UpdateRadar(MeasurementPackage meas_package) {
 
 void UKF::PredictLidarMeasurement(Eigen::MatrixXd& Zsig,
                                   Eigen::VectorXd& z_pred, Eigen::MatrixXd& S) {
+  // set measurement dimension, radar can measure r, phi, and r_dot
+  constexpr int n_z = 2;
+  // create matrix for sigma points in measurement space
+  Zsig = MatrixXd(n_z, sigma_point_size_);
+
+  // mean predicted measurement
+  z_pred = VectorXd::Zero(n_z);
+
+  // measurement covariance matrix S
+  S = MatrixXd::Zero(n_z, n_z);
+
+  // transform sigma points into measurement space
+  MatrixXd H = MatrixXd::Zero(n_z, n_x_);
+  H(0, 0) = 1;
+  H(1, 1) = 1;
+
+  Zsig = H * Xsig_pred_;
+  std::cout << "Predict lidar: \n";
+  std::cout << "Zsig: \n" << Zsig << "\n" << std::endl;
+
+  // calculate mean predicted measurement
+  for (int i = 0; i < sigma_point_size_; i++) {
+    z_pred = z_pred + weights_(i) * Zsig.col(i);
+  }
+  std::cout << "z_pred: \n" << z_pred << "\n" << std::endl;
+
+  // calculate innovation covariance matrix S
+  MatrixXd R = MatrixXd::Zero(n_z, n_z);
+  R(0, 0) = std_laspx_ * std_laspx_;
+  R(1, 1) = std_laspy_ * std_laspy_;
+
+  for (int i = 0; i < sigma_point_size_; i++) {
+    // residual
+    VectorXd z_diff = Zsig.col(i) - z_pred;
+
+    S = S + weights_(i) * z_diff * z_diff.transpose();
+  }
+  S = S + R;
+  std::cout << "S: \n" << S << "\n\n" << std::endl;
 }
 
 void UKF::PredictRadarMeasurement(Eigen::MatrixXd& Zsig,

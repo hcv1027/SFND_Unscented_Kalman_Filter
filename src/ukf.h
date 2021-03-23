@@ -1,6 +1,7 @@
 #ifndef UKF_H
 #define UKF_H
 
+#include <string>
 #include "Eigen/Dense"
 #include "measurement_package.h"
 
@@ -9,7 +10,7 @@ class UKF {
   /**
    * Constructor
    */
-  UKF();
+  UKF(std::string name = "dummy");
 
   /**
    * Destructor
@@ -97,6 +98,8 @@ class UKF {
 
   // Sigma point size
   int sigma_point_size_;
+
+  std::string name_;
 
  private:
   void AugmentedSigmaPoints(Eigen::MatrixXd& Xsig_aug);

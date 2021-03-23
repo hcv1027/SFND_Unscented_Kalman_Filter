@@ -48,7 +48,7 @@ class Highway {
 
     car1.setInstructions(car1_instructions);
     if (trackCars[0]) {
-      UKF ukf1;
+      UKF ukf1("ukf1");
       car1.setUKF(ukf1);
     }
     traffic.push_back(car1);
@@ -62,7 +62,7 @@ class Highway {
     car2_instructions.push_back(a);
     car2.setInstructions(car2_instructions);
     if (trackCars[1]) {
-      UKF ukf2;
+      UKF ukf2("ukf2");
       car2.setUKF(ukf2);
     }
     traffic.push_back(car2);
@@ -85,7 +85,7 @@ class Highway {
     car3_instructions.push_back(a);
     car3.setInstructions(car3_instructions);
     if (trackCars[2]) {
-      UKF ukf3;
+      UKF ukf3("ukf3");
       car3.setUKF(ukf3);
     }
     traffic.push_back(car3);
