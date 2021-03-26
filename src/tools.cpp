@@ -2,7 +2,6 @@
 #include <iostream>
 #include <random>
 
-
 using namespace std;
 using std::vector;
 
@@ -43,6 +42,7 @@ lmarker Tools::lidarSense(Car& car,
 rmarker Tools::radarSense(Car& car, Car ego,
                           pcl::visualization::PCLVisualizer::Ptr& viewer,
                           long long timestamp, bool visualize) {
+  std::cout << "radarSense++" << std::endl;
   double rho = sqrt(
       (car.position.x - ego.position.x) * (car.position.x - ego.position.x) +
       (car.position.y - ego.position.y) * (car.position.y - ego.position.y));
@@ -79,6 +79,7 @@ rmarker Tools::radarSense(Car& car, Car ego,
   meas_package.timestamp_ = timestamp;
 
   car.ukf.ProcessMeasurement(meas_package);
+  std::cout << "radarSense--" << std::endl;
 
   return marker;
 }
@@ -86,9 +87,10 @@ rmarker Tools::radarSense(Car& car, Car ego,
 // Show UKF tracking and also allow showing predicted future path
 // double time:: time ahead in the future to predict
 // int steps:: how many steps to show between present and time and future time
-void Tools::ukfResults(Car car, pcl::visualization::PCLVisualizer::Ptr& viewer,
+void Tools::ukfResults(Car& car, pcl::visualization::PCLVisualizer::Ptr& viewer,
                        double time, int steps) {
-  UKF ukf = car.ukf;
+  std::cout << "ukfResults++" << std::endl;
+  UKF& ukf = car.ukf;
   viewer->addSphere(pcl::PointXYZ(ukf.x_[0], ukf.x_[1], 3.5), 0.5, 0, 1, 0,
                     car.name + "_ukf");
   viewer->addArrow(pcl::PointXYZ(ukf.x_[0], ukf.x_[1], 3.5),
@@ -113,6 +115,7 @@ void Tools::ukfResults(Car car, pcl::visualization::PCLVisualizer::Ptr& viewer,
       ct += dt;
     }
   }
+  std::cout << "ukfResults--" << std::endl;
 }
 
 VectorXd Tools::CalculateRMSE(const vector<VectorXd>& estimations,
@@ -131,6 +134,7 @@ VectorXd Tools::CalculateRMSE(const vector<VectorXd>& estimations,
   // accumulate squared residuals
   for (unsigned int i = 0; i < estimations.size(); ++i) {
     VectorXd residual = estimations[i] - ground_truth[i];
+    std::cout << "residual: \n" << residual << std::endl;
 
     // coefficient-wise multiplication
     residual = residual.array() * residual.array();

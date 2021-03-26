@@ -74,3 +74,10 @@ and performing clustering. This is similar to what was done in Sensor Fusion Lid
 This information is only accessible by people who are already enrolled in Sensor Fusion. 
 If you are enrolled, see the project page in the classroom
 for instructions and the project rubric.
+
+## Discussion link
+1. [Can't seem to process and update measurements in final project](https://knowledge.udacity.com/questions/355044)
+2. [Initialize P_](https://knowledge.udacity.com/questions/486035)
+3. [ukf initilization with radar](https://knowledge.udacity.com/questions/487026)
+4. [Radar Initialization and uncorrect RMSE estimation](https://knowledge.udacity.com/questions/396264)
+5. [the car_2 prediction wrong, although other cars work](https://knowledge.udacity.com/questions/398805)

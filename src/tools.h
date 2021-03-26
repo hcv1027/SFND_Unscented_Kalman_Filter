@@ -5,7 +5,6 @@
 #include "Eigen/Dense"
 #include "render/render.h"
 
-
 using Eigen::MatrixXd;
 using Eigen::VectorXd;
 using namespace std;
@@ -43,7 +42,7 @@ class Tools {
   rmarker radarSense(Car& car, Car ego,
                      pcl::visualization::PCLVisualizer::Ptr& viewer,
                      long long timestamp, bool visualize);
-  void ukfResults(Car car, pcl::visualization::PCLVisualizer::Ptr& viewer,
+  void ukfResults(Car& car, pcl::visualization::PCLVisualizer::Ptr& viewer,
                   double time, int steps);
   /**
    * A helper method to calculate RMSE.
