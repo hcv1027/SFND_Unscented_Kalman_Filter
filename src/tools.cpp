@@ -1,4 +1,5 @@
 #include "tools.h"
+#include <fstream>
 #include <iostream>
 #include <random>
 
@@ -7,7 +8,53 @@ using std::vector;
 
 Tools::Tools() {}
 
-Tools::~Tools() {}
+Tools::~Tools() {
+  for (int i = 0; i < 3; i++) {
+    if (all_ground_truth[i].size() > 0) {
+      std::ofstream fs_px("car" + std::to_string(i) + "_gt_px.txt",
+                          std::ios_base::trunc | std::ios_base::out);
+      std::ofstream fs_py("car" + std::to_string(i) + "_gt_py.txt",
+                          std::ios_base::trunc | std::ios_base::out);
+      std::ofstream fs_vel("car" + std::to_string(i) + "_gt_vel.txt",
+                           std::ios_base::trunc | std::ios_base::out);
+      std::ofstream fs_yaw("car" + std::to_string(i) + "_gt_yaw.txt",
+                           std::ios_base::trunc | std::ios_base::out);
+      for (auto gt : all_ground_truth[i]) {
+        fs_px << gt(0) << "\n";
+        fs_py << gt(1) << "\n";
+        fs_vel << gt(2) << "\n";
+        fs_yaw << gt(3) << "\n";
+      }
+      fs_px.close();
+      fs_py.close();
+      fs_vel.close();
+      fs_yaw.close();
+    }
+  }
+
+  for (int i = 0; i < 3; i++) {
+    if (all_estimations[i].size() > 0) {
+      std::ofstream fs_px("car" + std::to_string(i) + "_est_px.txt",
+                          std::ios_base::trunc | std::ios_base::out);
+      std::ofstream fs_py("car" + std::to_string(i) + "_est_py.txt",
+                          std::ios_base::trunc | std::ios_base::out);
+      std::ofstream fs_vel("car" + std::to_string(i) + "_est_vel.txt",
+                           std::ios_base::trunc | std::ios_base::out);
+      std::ofstream fs_yaw("car" + std::to_string(i) + "_est_yaw.txt",
+                           std::ios_base::trunc | std::ios_base::out);
+      for (auto est : all_estimations[i]) {
+        fs_px << est(0) << "\n";
+        fs_py << est(1) << "\n";
+        fs_vel << est(2) << "\n";
+        fs_yaw << est(3) << "\n";
+      }
+      fs_px.close();
+      fs_py.close();
+      fs_vel.close();
+      fs_yaw.close();
+    }
+  }
+}
 
 double Tools::noise(double stddev, long long seedNum) {
   mt19937::result_type seed = seedNum;
@@ -42,7 +89,6 @@ lmarker Tools::lidarSense(Car& car,
 rmarker Tools::radarSense(Car& car, Car ego,
                           pcl::visualization::PCLVisualizer::Ptr& viewer,
                           long long timestamp, bool visualize) {
-  std::cout << "radarSense++" << std::endl;
   double rho = sqrt(
       (car.position.x - ego.position.x) * (car.position.x - ego.position.x) +
       (car.position.y - ego.position.y) * (car.position.y - ego.position.y));
@@ -79,7 +125,6 @@ rmarker Tools::radarSense(Car& car, Car ego,
   meas_package.timestamp_ = timestamp;
 
   car.ukf.ProcessMeasurement(meas_package);
-  std::cout << "radarSense--" << std::endl;
 
   return marker;
 }
@@ -87,10 +132,9 @@ rmarker Tools::radarSense(Car& car, Car ego,
 // Show UKF tracking and also allow showing predicted future path
 // double time:: time ahead in the future to predict
 // int steps:: how many steps to show between present and time and future time
-void Tools::ukfResults(Car& car, pcl::visualization::PCLVisualizer::Ptr& viewer,
+void Tools::ukfResults(Car car, pcl::visualization::PCLVisualizer::Ptr& viewer,
                        double time, int steps) {
-  std::cout << "ukfResults++" << std::endl;
-  UKF& ukf = car.ukf;
+  UKF ukf = car.ukf;
   viewer->addSphere(pcl::PointXYZ(ukf.x_[0], ukf.x_[1], 3.5), 0.5, 0, 1, 0,
                     car.name + "_ukf");
   viewer->addArrow(pcl::PointXYZ(ukf.x_[0], ukf.x_[1], 3.5),
@@ -115,7 +159,6 @@ void Tools::ukfResults(Car& car, pcl::visualization::PCLVisualizer::Ptr& viewer,
       ct += dt;
     }
   }
-  std::cout << "ukfResults--" << std::endl;
 }
 
 VectorXd Tools::CalculateRMSE(const vector<VectorXd>& estimations,
@@ -134,7 +177,8 @@ VectorXd Tools::CalculateRMSE(const vector<VectorXd>& estimations,
   // accumulate squared residuals
   for (unsigned int i = 0; i < estimations.size(); ++i) {
     VectorXd residual = estimations[i] - ground_truth[i];
-    std::cout << "residual: \n" << residual << std::endl;
+    // std::cout << "residual[" << i << "]: \n" << residual << "\n" <<
+    // std::endl;
 
     // coefficient-wise multiplication
     residual = residual.array() * residual.array();

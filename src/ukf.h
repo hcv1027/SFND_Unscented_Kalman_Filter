@@ -2,6 +2,7 @@
 #define UKF_H
 
 #include <string>
+#include <vector>
 #include "Eigen/Dense"
 #include "measurement_package.h"
 
@@ -10,7 +11,7 @@ class UKF {
   /**
    * Constructor
    */
-  UKF(std::string name = "dummy");
+  UKF();
 
   /**
    * Destructor
@@ -99,7 +100,8 @@ class UKF {
   // Sigma point size
   int sigma_point_size_;
 
-  std::string name_;
+  std::vector<std::pair<double, double>> lidar_nis_;
+  std::vector<std::pair<double, double>> radar_nis_;
 
  private:
   void AugmentedSigmaPoints(Eigen::MatrixXd& Xsig_aug);
@@ -107,9 +109,9 @@ class UKF {
   void PredictMeanAndCovariance();
 
   void PredictLidarMeasurement(Eigen::MatrixXd& Zsig, Eigen::VectorXd& z_pred,
-                               Eigen::MatrixXd& S);
+                               Eigen::MatrixXd& S, double& nis);
   void PredictRadarMeasurement(Eigen::MatrixXd& Zsig, Eigen::VectorXd& z_pred,
-                               Eigen::MatrixXd& S);
+                               Eigen::MatrixXd& S, double& nis);
   void UpdateState(MeasurementPackage& meas_package, Eigen::MatrixXd& Zsig,
                    Eigen::VectorXd& z_pred, Eigen::MatrixXd& S);
 };

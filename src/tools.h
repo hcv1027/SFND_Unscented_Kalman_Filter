@@ -1,6 +1,7 @@
 #ifndef TOOLS_H_
 #define TOOLS_H_
 #include <pcl/io/pcd_io.h>
+#include <array>
 #include <vector>
 #include "Eigen/Dense"
 #include "render/render.h"
@@ -35,6 +36,8 @@ class Tools {
   // Members
   std::vector<VectorXd> estimations;
   std::vector<VectorXd> ground_truth;
+  std::array<std::vector<VectorXd>, 3> all_estimations;
+  std::array<std::vector<VectorXd>, 3> all_ground_truth;
 
   double noise(double stddev, long long seedNum);
   lmarker lidarSense(Car& car, pcl::visualization::PCLVisualizer::Ptr& viewer,
@@ -42,7 +45,7 @@ class Tools {
   rmarker radarSense(Car& car, Car ego,
                      pcl::visualization::PCLVisualizer::Ptr& viewer,
                      long long timestamp, bool visualize);
-  void ukfResults(Car& car, pcl::visualization::PCLVisualizer::Ptr& viewer,
+  void ukfResults(Car car, pcl::visualization::PCLVisualizer::Ptr& viewer,
                   double time, int steps);
   /**
    * A helper method to calculate RMSE.

@@ -18,7 +18,7 @@ class Highway {
   // Parameters
   // --------------------------------
   // Set which cars to track with UKF
-  std::vector<bool> trackCars = {true, false, false};
+  std::vector<bool> trackCars = {false, false, true};
   // Visualize sensor measurements
   bool visualize_lidar = true;
   bool visualize_radar = true;
@@ -48,7 +48,7 @@ class Highway {
 
     car1.setInstructions(car1_instructions);
     if (trackCars[0]) {
-      UKF ukf1("ukf1");
+      UKF ukf1;
       car1.setUKF(ukf1);
     }
     traffic.push_back(car1);
@@ -62,7 +62,7 @@ class Highway {
     car2_instructions.push_back(a);
     car2.setInstructions(car2_instructions);
     if (trackCars[1]) {
-      UKF ukf2("ukf2");
+      UKF ukf2;
       car2.setUKF(ukf2);
     }
     traffic.push_back(car2);
@@ -85,7 +85,7 @@ class Highway {
     car3_instructions.push_back(a);
     car3.setInstructions(car3_instructions);
     if (trackCars[2]) {
-      UKF ukf3("ukf3");
+      UKF ukf3;
       car3.setUKF(ukf3);
     }
     traffic.push_back(car3);
@@ -125,10 +125,16 @@ class Highway {
             traffic[i].velocity * cos(traffic[i].angle),
             traffic[i].velocity * sin(traffic[i].angle);
         tools.ground_truth.push_back(gt);
+
+        VectorXd all_gt(4);
+        all_gt << traffic[i].position.x, traffic[i].position.y,
+            traffic[i].velocity, traffic[i].angle;
+        tools.all_ground_truth[i].push_back(all_gt);
+
         tools.lidarSense(traffic[i], viewer, timestamp, visualize_lidar);
         tools.radarSense(traffic[i], egoCar, viewer, timestamp,
                          visualize_radar);
-        tools.ukfResults(traffic[i], viewer, projectedTime, projectedSteps);
+        // tools.ukfResults(traffic[i], viewer, projectedTime, projectedSteps);
         VectorXd estimate(4);
         double v = traffic[i].ukf.x_(2);
         double yaw = traffic[i].ukf.x_(3);
@@ -136,6 +142,10 @@ class Highway {
         double v2 = sin(yaw) * v;
         estimate << traffic[i].ukf.x_[0], traffic[i].ukf.x_[1], v1, v2;
         tools.estimations.push_back(estimate);
+
+        VectorXd all_est(4);
+        all_est << traffic[i].ukf.x_[0], traffic[i].ukf.x_[1], v, yaw;
+        tools.all_estimations[i].push_back(all_est);
       }
     }
     viewer->addText("Accuracy - RMSE:", 30, 300, 20, 1, 1, 1, "rmse");
@@ -167,6 +177,12 @@ class Highway {
         pass = false;
       }
     }
+
+    // std::cout << "timestamp: " << timestamp << std::endl;
+    // for (int i = 0; i < 4; i++) {
+    //   std::cout << "rmse[" << i << "] = " << rmse[i] << std::endl;
+    // }
+
     if (!pass) {
       viewer->addText("RMSE Failed Threshold", 30, 150, 20, 1, 0, 0,
                       "rmse_fail");

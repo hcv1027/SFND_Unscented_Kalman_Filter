@@ -1,5 +1,6 @@
 #include "ukf.h"
 #include <chrono>
+#include <fstream>
 #include <iostream>
 #include "Eigen/Dense"
 
@@ -17,10 +18,7 @@ double normalize_angle(double angle) {
 /**
  * Initializes Unscented Kalman filter
  */
-UKF::UKF(std::string name) {
-  name_ = name;
-  // std::cout << "I'm " << this << std::endl;
-
+UKF::UKF() {
   // if this is false, laser measurements will be ignored (except during init)
   use_laser_ = true;
 
@@ -34,10 +32,10 @@ UKF::UKF(std::string name) {
   P_ = MatrixXd(5, 5);
 
   // Process noise standard deviation longitudinal acceleration in m/s^2
-  std_a_ = 30;
+  std_a_ = 1.5;
 
   // Process noise standard deviation yaw acceleration in rad/s^2
-  std_yawdd_ = 30;
+  std_yawdd_ = 0.5;
 
   /**
    * DO NOT MODIFY measurement noise values below.
@@ -81,10 +79,27 @@ UKF::UKF(std::string name) {
   for (int i = 1; i < sigma_point_size_; i++) {
     weights_(i) = temp;
   }
-  // std::cout << this << " weights: \n" << weights_ << "\n" << std::endl;
 }
 
-UKF::~UKF() {}
+UKF::~UKF() {
+  if (lidar_nis_.size() > 0) {
+    std::ofstream fs("NIS_laser.txt",
+                     std::ios_base::trunc | std::ios_base::out);
+    for (auto nis : lidar_nis_) {
+      fs << nis.second << "\n";
+    }
+    fs.close();
+  }
+
+  if (radar_nis_.size() > 0) {
+    std::ofstream fs("NIS_radar.txt",
+                     std::ios_base::trunc | std::ios_base::out);
+    for (auto nis : radar_nis_) {
+      fs << nis.second << "\n";
+    }
+    fs.close();
+  }
+}
 
 void UKF::ProcessMeasurement(MeasurementPackage meas_package) {
   /**
@@ -92,31 +107,48 @@ void UKF::ProcessMeasurement(MeasurementPackage meas_package) {
    * measurements.
    */
   if (!is_initialized_) {
-    is_initialized_ = true;
     // Initialize x_ and P_
+    // x_: px, py, vel, yaw, yaw_dot
     P_ = MatrixXd::Identity(n_x_, n_x_);
+    P_(0, 0) = 0.2;
+    P_(1, 1) = 0.2;
+    P_(2, 2) = 1.0;
+    P_(3, 3) = 0.0225;
+    P_(4, 4) = 0.0225;
     if (meas_package.sensor_type_ == MeasurementPackage::LASER) {
       x_ << meas_package.raw_measurements_[0],
           meas_package.raw_measurements_[1], 0.0, 0.0, 0.0;
     } else {
-      x_ << 0.0, 0.0, 0.0, 0.0, 0.0;
+      double rho = meas_package.raw_measurements_[0];
+      double phi = meas_package.raw_measurements_[1];
+      double rho_dot = meas_package.raw_measurements_[2];
+      x_ << rho * std::cos(phi), rho * std::sin(phi), 0, 0, 0;
     }
 
-    // std::cout << "I'm " << this << std::endl;
-    // std::cout << "Init x: \n" << x_ << "\n" << std::endl;
-    // std::cout << "Init P: \n" << P_ << "\n" << std::endl;
+    time_us_ = meas_package.timestamp_;
+    is_initialized_ = true;
+    std::cout << "Init x: \n" << x_ << "\n" << std::endl;
+    std::cout << "Init P: \n" << P_ << "\n" << std::endl;
 
     return;
   }
 
+  // calculate the time between the previous and current measurements
+  double dt = (meas_package.timestamp_ - time_us_) * 1.0e-6;
+  // input current time as the previous time prediction step
+  time_us_ = meas_package.timestamp_;
+  // call the prediction step same from lidar and radar
+  Prediction(dt);
+
   // Do UKF update
-  std::cout << "ProcessMeasurement++" << std::endl;
-  if (meas_package.sensor_type_ == MeasurementPackage::LASER) {
+  // std::cout << "ProcessMeasurement++" << std::endl;
+  if (meas_package.sensor_type_ == MeasurementPackage::LASER && use_laser_) {
     UpdateLidar(meas_package);
-  } else {
+  } else if (meas_package.sensor_type_ == MeasurementPackage::RADAR &&
+             use_radar_) {
     UpdateRadar(meas_package);
   }
-  std::cout << "ProcessMeasurement--" << std::endl;
+  // std::cout << "ProcessMeasurement--" << std::endl;
 }
 
 void UKF::Prediction(double delta_t) {
@@ -126,39 +158,17 @@ void UKF::Prediction(double delta_t) {
    * and the state covariance matrix.
    */
   // Generate sigma points
-  // std::cout << "Prediction++" << std::endl;
-  // std::chrono::steady_clock::time_point t1 =
-  // std::chrono::steady_clock::now();
   MatrixXd Xsig_aug;
   AugmentedSigmaPoints(Xsig_aug);
-  // std::chrono::steady_clock::time_point t2 =
-  // std::chrono::steady_clock::now(); std::cout
-  //     << "AugmentedSigmaPoints: "
-  //     << std::chrono::duration_cast<std::chrono::milliseconds>(t2 -
-  //     t1).count()
-  //     << std::endl;
   // Predict sigma points
   SigmaPointPrediction(Xsig_aug, delta_t);
-  // std::chrono::steady_clock::time_point t3 =
-  // std::chrono::steady_clock::now(); std::cout
-  //     << "SigmaPointPrediction: "
-  //     << std::chrono::duration_cast<std::chrono::milliseconds>(t3 -
-  //     t2).count()
-  //     << std::endl;
   // Predict mean and covariance
   PredictMeanAndCovariance();
-  // std::chrono::steady_clock::time_point t4 =
-  // std::chrono::steady_clock::now(); std::cout
-  //     << "PredictMeanAndCovariance: "
-  //     << std::chrono::duration_cast<std::chrono::milliseconds>(t4 -
-  //     t3).count()
-  //     << std::endl;
-  // std::cout << "I'm " << this << std::endl;
-  std::cout << "Xsig_aug: \n" << Xsig_aug << "\n" << std::endl;
+  /* std::cout << "Xsig_aug: \n" << Xsig_aug << "\n" << std::endl;
   std::cout << "Prediction Xsig_pred_: \n" << Xsig_pred_ << "\n" << std::endl;
   std::cout << "Predict x: \n" << x_ << "\n" << std::endl;
   std::cout << "Predict P: \n" << P_ << "\n\n" << std::endl;
-  // std::cout << "Prediction--\n\n" << std::endl;
+  std::cout << "Prediction--\n\n" << std::endl; */
 }
 
 void UKF::AugmentedSigmaPoints(Eigen::MatrixXd& Xsig_aug) {
@@ -237,9 +247,6 @@ void UKF::SigmaPointPrediction(Eigen::MatrixXd& Xsig_aug, double delta_t) {
     // write predicted sigma points into right column
     Xsig_pred_.col(i) = pred_sigma_point;
   }
-  // std::cout << "SigmaPointPrediction Xsig_pred_: \n"
-  //           << Xsig_pred_ << "\n"
-  //           << std::endl;
 }
 
 void UKF::PredictMeanAndCovariance() {
@@ -280,9 +287,6 @@ void UKF::PredictMeanAndCovariance() {
 
     P_ = P_ + weights_(i) * x_diff * x_diff.transpose();
   }
-  // std::cout << "PredictMeanAndCovariance Xsig_pred_: \n"
-  //           << Xsig_pred_ << "\n"
-  //           << std::endl;
 }
 
 void UKF::UpdateLidar(MeasurementPackage meas_package) {
@@ -295,18 +299,19 @@ void UKF::UpdateLidar(MeasurementPackage meas_package) {
   MatrixXd Zsig;
   VectorXd z_pred;
   MatrixXd S;
-  // std::cout << "I'm " << this << std::endl;
-  std::cout << "UpdateLidar Xsig_pred_: \n" << Xsig_pred_ << "\n" << std::endl;
-  std::cout << "UpdateLidar x: \n" << x_ << "\n" << std::endl;
-  std::cout << "UpdateLidar P: \n" << P_ << "\n\n" << std::endl;
-  // std::cout << "UpdateLidar" << std::endl;
-  PredictLidarMeasurement(Zsig, z_pred, S);
-  std::cout << "UpdateLidar, Zsig: \n" << Zsig << "\n" << std::endl;
-  std::cout << "UpdateLidar, z_pred: \n" << z_pred << "\n" << std::endl;
-  std::cout << "UpdateLidar, S: \n" << S << "\n\n" << std::endl;
+  double nis;
+  // std::cout << "UpdateLidar Xsig_pred_: \n" << Xsig_pred_ << "\n" <<
+  // std::endl; std::cout << "UpdateLidar x: \n" << x_ << "\n" << std::endl;
+  // std::cout << "UpdateLidar P: \n" << P_ << "\n\n" << std::endl;
+  PredictLidarMeasurement(Zsig, z_pred, S, nis);
+  double timestamp = double(meas_package.timestamp_) * 1e-6;
+  lidar_nis_.push_back(std::make_pair(timestamp, nis));
+  // std::cout << "UpdateLidar, Zsig: \n" << Zsig << "\n" << std::endl;
+  // std::cout << "UpdateLidar, z_pred: \n" << z_pred << "\n" << std::endl;
+  // std::cout << "UpdateLidar, S: \n" << S << "\n\n" << std::endl;
   UpdateState(meas_package, Zsig, z_pred, S);
-  std::cout << "UpdateLidar x: \n" << x_ << "\n" << std::endl;
-  std::cout << "UpdateLidar P: \n" << P_ << "\n\n" << std::endl;
+  // std::cout << "UpdateLidar x: \n" << x_ << "\n" << std::endl;
+  // std::cout << "UpdateLidar P: \n" << P_ << "\n\n" << std::endl;
 }
 
 void UKF::UpdateRadar(MeasurementPackage meas_package) {
@@ -319,20 +324,25 @@ void UKF::UpdateRadar(MeasurementPackage meas_package) {
   MatrixXd Zsig;
   VectorXd z_pred;
   MatrixXd S;
-  std::cout << "UpdateRadar Xsig_pred_: \n" << Xsig_pred_ << "\n" << std::endl;
-  std::cout << "UpdateRadar x: \n" << x_ << "\n" << std::endl;
-  std::cout << "UpdateRadar P: \n" << P_ << "\n\n" << std::endl;
-  PredictRadarMeasurement(Zsig, z_pred, S);
-  std::cout << "UpdateRadar, Zsig: \n" << Zsig << "\n" << std::endl;
-  std::cout << "UpdateRadar, z_pred: \n" << z_pred << "\n" << std::endl;
-  std::cout << "UpdateRadar, S: \n" << S << "\n\n" << std::endl;
+  double nis;
+  // std::cout << "UpdateRadar Xsig_pred_: \n" << Xsig_pred_ << "\n" <<
+  // std::endl; std::cout << "UpdateRadar x: \n" << x_ << "\n" << std::endl;
+  // std::cout << "UpdateRadar P: \n" << P_ << "\n\n" << std::endl;
+  PredictRadarMeasurement(Zsig, z_pred, S, nis);
+  double timestamp = double(meas_package.timestamp_) * 1.0e-6;
+  // std::cout << "timestamp: " << timestamp << std::endl;
+  radar_nis_.push_back(std::make_pair(timestamp, nis));
+  // std::cout << "UpdateRadar, Zsig: \n" << Zsig << "\n" << std::endl;
+  // std::cout << "UpdateRadar, z_pred: \n" << z_pred << "\n" << std::endl;
+  // std::cout << "UpdateRadar, S: \n" << S << "\n\n" << std::endl;
   UpdateState(meas_package, Zsig, z_pred, S);
-  std::cout << "UpdateRadar x: \n" << x_ << "\n" << std::endl;
-  std::cout << "UpdateRadar P: \n" << P_ << "\n\n" << std::endl;
+  // std::cout << "UpdateRadar x: \n" << x_ << "\n" << std::endl;
+  // std::cout << "UpdateRadar P: \n" << P_ << "\n\n" << std::endl;
 }
 
 void UKF::PredictLidarMeasurement(Eigen::MatrixXd& Zsig,
-                                  Eigen::VectorXd& z_pred, Eigen::MatrixXd& S) {
+                                  Eigen::VectorXd& z_pred, Eigen::MatrixXd& S,
+                                  double& nis) {
   // set measurement dimension, radar can measure r, phi, and r_dot
   constexpr int n_z = 2;
   // create matrix for sigma points in measurement space
@@ -348,19 +358,12 @@ void UKF::PredictLidarMeasurement(Eigen::MatrixXd& Zsig,
   MatrixXd H = MatrixXd::Zero(n_z, n_x_);
   H(0, 0) = 1;
   H(1, 1) = 1;
-
-  std::cout << "PredictLidar, Xsig_pred_: \n"
-            << Xsig_pred_ << "\n"
-            << std::endl;
   Zsig = H * Xsig_pred_;
-  // std::cout << "Predict lidar: \n";
-  // std::cout << "Zsig: \n" << Zsig << "\n" << std::endl;
 
   // calculate mean predicted measurement
   for (int i = 0; i < sigma_point_size_; i++) {
     z_pred = z_pred + weights_(i) * Zsig.col(i);
   }
-  // std::cout << "z_pred: \n" << z_pred << "\n" << std::endl;
 
   // calculate innovation covariance matrix S
   MatrixXd R = MatrixXd::Zero(n_z, n_z);
@@ -375,10 +378,16 @@ void UKF::PredictLidarMeasurement(Eigen::MatrixXd& Zsig,
   }
   S = S + R;
   // std::cout << "S: \n" << S << "\n\n" << std::endl;
+
+  // Compute NIS
+  VectorXd z_diff = Zsig.col(0) - z_pred;
+  nis = z_diff.transpose() * S.inverse() * z_diff;
+  // std::cout << "Lidar nis:" << nis << "\n" << std::endl;
 }
 
 void UKF::PredictRadarMeasurement(Eigen::MatrixXd& Zsig,
-                                  Eigen::VectorXd& z_pred, Eigen::MatrixXd& S) {
+                                  Eigen::VectorXd& z_pred, Eigen::MatrixXd& S,
+                                  double& nis) {
   // set measurement dimension, radar can measure r, phi, and r_dot
   constexpr int n_z = 3;
   // create matrix for sigma points in measurement space
@@ -391,9 +400,6 @@ void UKF::PredictRadarMeasurement(Eigen::MatrixXd& Zsig,
   S = MatrixXd::Zero(n_z, n_z);
 
   // transform sigma points into measurement space
-  std::cout << "PredictRadar, Xsig_pred_: \n"
-            << Xsig_pred_ << "\n"
-            << std::endl;
   for (int i = 0; i < sigma_point_size_; i++) {
     double px = Xsig_pred_(0, i);
     double py = Xsig_pred_(1, i);
@@ -410,13 +416,11 @@ void UKF::PredictRadarMeasurement(Eigen::MatrixXd& Zsig,
     Zsig(1, i) = phi;
     Zsig(2, i) = rho_dot;
   }
-  std::cout << "PredictRadar, Zsig: \n" << Zsig << "\n" << std::endl;
 
   // calculate mean predicted measurement
   for (int i = 0; i < sigma_point_size_; i++) {
     z_pred = z_pred + weights_(i) * Zsig.col(i);
   }
-  std::cout << "PredictRadar, z_pred: \n" << z_pred << "\n" << std::endl;
 
   // calculate innovation covariance matrix S
   MatrixXd R = MatrixXd::Zero(n_z, n_z);
@@ -429,25 +433,19 @@ void UKF::PredictRadarMeasurement(Eigen::MatrixXd& Zsig,
     VectorXd z_diff = Zsig.col(i) - z_pred;
     // angle normalization
     if (z_diff(1) > M_PI) {
-      // std::cout << "yaw++: " << z_diff(1) << std::endl;
       z_diff(1) = normalize_angle(z_diff(1));
-      // std::cout << "yaw--: " << z_diff(1) << std::endl;
     } else if (z_diff(1) < -M_PI) {
-      // std::cout << "yaw++: " << z_diff(1) << std::endl;
       z_diff(1) = normalize_angle(z_diff(1));
-      // std::cout << "yaw--: " << z_diff(1) << std::endl;
     }
-    /* while (z_diff(1) > M_PI) {
-      z_diff(1) -= 2. * M_PI;
-    }
-    while (z_diff(1) < -M_PI) {
-      z_diff(1) += 2. * M_PI;
-    } */
 
     S = S + weights_(i) * z_diff * z_diff.transpose();
   }
   S = S + R;
-  std::cout << "PredictRadar, S: \n" << S << "\n" << std::endl;
+
+  // Compute NIS
+  VectorXd z_diff = Zsig.col(0) - z_pred;
+  nis = z_diff.transpose() * S.inverse() * z_diff;
+  // std::cout << "Lidar nis:" << nis << "\n" << std::endl;
 }
 
 void UKF::UpdateState(MeasurementPackage& meas_package, Eigen::MatrixXd& Zsig,
@@ -462,12 +460,12 @@ void UKF::UpdateState(MeasurementPackage& meas_package, Eigen::MatrixXd& Zsig,
     VectorXd z_diff = Zsig.col(i) - z_pred;
     Tc = Tc + weights_(i) * x_diff * z_diff.transpose();
   }
-  std::cout << "Tc: " << Tc << "\n" << std::endl;
+  // std::cout << "Tc: " << Tc << "\n" << std::endl;
 
   // calculate Kalman gain K;
   MatrixXd K = Tc * S.inverse();
-  std::cout << "S.inverse(): " << S.inverse() << "\n" << std::endl;
-  std::cout << "K: " << K << "\n" << std::endl;
+  // std::cout << "S.inverse(): " << S.inverse() << "\n" << std::endl;
+  // std::cout << "K: " << K << "\n" << std::endl;
 
   // update state mean and covariance matrix
   x_ = x_ + K * (meas_package.raw_measurements_ - z_pred);
