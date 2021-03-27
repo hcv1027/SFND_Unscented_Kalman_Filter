@@ -109,9 +109,9 @@ class UKF {
   void PredictMeanAndCovariance();
 
   void PredictLidarMeasurement(Eigen::MatrixXd& Zsig, Eigen::VectorXd& z_pred,
-                               Eigen::MatrixXd& S, double& nis);
+                               Eigen::MatrixXd& S);
   void PredictRadarMeasurement(Eigen::MatrixXd& Zsig, Eigen::VectorXd& z_pred,
-                               Eigen::MatrixXd& S, double& nis);
+                               Eigen::MatrixXd& S);
   void UpdateState(MeasurementPackage& meas_package, Eigen::MatrixXd& Zsig,
                    Eigen::VectorXd& z_pred, Eigen::MatrixXd& S);
 };
