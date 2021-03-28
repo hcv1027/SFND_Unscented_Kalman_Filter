@@ -18,7 +18,7 @@ class Highway {
   // Parameters
   // --------------------------------
   // Set which cars to track with UKF
-  std::vector<bool> trackCars = {false, false, true};
+  std::vector<bool> trackCars = {true, true, true};
   // Visualize sensor measurements
   bool visualize_lidar = true;
   bool visualize_radar = true;
@@ -177,11 +177,6 @@ class Highway {
         pass = false;
       }
     }
-
-    // std::cout << "timestamp: " << timestamp << std::endl;
-    // for (int i = 0; i < 4; i++) {
-    //   std::cout << "rmse[" << i << "] = " << rmse[i] << std::endl;
-    // }
 
     if (!pass) {
       viewer->addText("RMSE Failed Threshold", 30, 150, 20, 1, 0, 0,

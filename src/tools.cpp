@@ -9,7 +9,7 @@ using std::vector;
 Tools::Tools() {}
 
 Tools::~Tools() {
-  for (int i = 0; i < 3; i++) {
+  /* for (int i = 0; i < 3; i++) {
     if (all_ground_truth[i].size() > 0) {
       std::ofstream fs_px("car" + std::to_string(i) + "_gt_px.txt",
                           std::ios_base::trunc | std::ios_base::out);
@@ -29,6 +29,46 @@ Tools::~Tools() {
       fs_py.close();
       fs_vel.close();
       fs_yaw.close();
+
+      std::vector<double> acc;
+      double acc_mean = 0;
+      std::vector<double> yaw_vel;
+      for (int j = 3; j < all_ground_truth[i].size(); j += 3) {
+        auto gt1 = all_ground_truth[i][j];
+        auto gt2 = all_ground_truth[i][j - 3];
+        double acc_val = (gt1(2) - gt2(2)) / 0.1;
+        acc_mean += acc_val;
+        acc.push_back(acc_val);
+
+        yaw_vel.push_back((gt1(3) - gt2(3)) / 0.1);
+      }
+      acc_mean /= acc.size();
+      double acc_std = 0;
+      for (int j = 0; j < acc.size(); j++) {
+        acc_std += std::pow(acc[j] - acc_mean, 2);
+      }
+      acc_std = std::sqrt(acc_std / (acc.size() - 1));
+
+      std::vector<double> yaw_acc;
+      double yaw_acc_mean = 0;
+      for (int j = 1; j < yaw_vel.size(); j++) {
+        double acc_val = (yaw_vel[j] - yaw_vel[j - 1]) / 0.1;
+        // std::cout << "acc_val: " << acc_val << std::endl;
+        yaw_acc_mean += acc_val;
+        yaw_acc.push_back(acc_val);
+      }
+      yaw_acc_mean /= yaw_acc.size();
+      double yaw_acc_std = 0;
+      for (int j = 0; j < yaw_acc.size(); j++) {
+        yaw_acc_std += std::pow(yaw_acc[j] - yaw_acc_mean, 2);
+      }
+      yaw_acc_std = std::sqrt(yaw_acc_std / (yaw_acc.size() - 1));
+
+      std::cout << "car" << std::to_string(i) << " acc, mean: " << acc_mean
+                << ", std: " << acc_std << std::endl;
+      std::cout << "car" << std::to_string(i)
+                << " yaw acc, mean: " << yaw_acc_mean
+                << ", std: " << yaw_acc_std << std::endl;
     }
   }
 
@@ -53,7 +93,7 @@ Tools::~Tools() {
       fs_vel.close();
       fs_yaw.close();
     }
-  }
+  } */
 }
 
 double Tools::noise(double stddev, long long seedNum) {
@@ -78,6 +118,10 @@ lmarker Tools::lidarSense(Car& car,
                       car.name + "_lmarker");
 
   meas_package.raw_measurements_ << marker.x, marker.y;
+  // std::cout << "car, x: " << car.position.x << ", y: " << car.position.y
+  //           << std::endl;
+  // std::cout << "data, x: " << marker.x << ", y: " << marker.y << "\n"
+  //           << std::endl;
   meas_package.timestamp_ = timestamp;
 
   car.ukf.ProcessMeasurement(meas_package);
