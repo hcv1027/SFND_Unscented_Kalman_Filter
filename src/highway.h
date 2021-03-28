@@ -134,7 +134,7 @@ class Highway {
         tools.lidarSense(traffic[i], viewer, timestamp, visualize_lidar);
         tools.radarSense(traffic[i], egoCar, viewer, timestamp,
                          visualize_radar);
-        // tools.ukfResults(traffic[i], viewer, projectedTime, projectedSteps);
+        tools.ukfResults(traffic[i], viewer, projectedTime, projectedSteps);
         VectorXd estimate(4);
         double v = traffic[i].ukf.x_(2);
         double yaw = traffic[i].ukf.x_(3);
